@@ -36,7 +36,7 @@ import in.srain.cube.views.ptr.PtrClassicFrameLayout;
 import in.srain.cube.views.ptr.PtrDefaultHandler;
 import in.srain.cube.views.ptr.PtrFrameLayout;
 
-public class OfflineFragment extends Fragment {
+public class OfflineFragment extends BaseFragment {
 
     private SpiceManager spiceManager = new SpiceManager(HttpClientSpiceService.class);
 
@@ -99,6 +99,9 @@ public class OfflineFragment extends Fragment {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= listData.size()) {
+                    return;
+                }
                 String type = listData.get(position).getType();
                 String url = listData.get(position).getUrl();
                 String title = listData.get(position).getTitle();

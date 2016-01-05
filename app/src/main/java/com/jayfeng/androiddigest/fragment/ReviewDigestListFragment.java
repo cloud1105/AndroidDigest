@@ -42,7 +42,7 @@ import in.srain.cube.views.ptr.PtrClassicFrameLayout;
 import in.srain.cube.views.ptr.PtrDefaultHandler;
 import in.srain.cube.views.ptr.PtrFrameLayout;
 
-public class ReviewDigestListFragment extends Fragment implements OnScrollListener {
+public class ReviewDigestListFragment extends BaseFragment implements OnScrollListener {
 
     private SpiceManager spiceManager = new SpiceManager(HttpClientSpiceService.class);
 
@@ -113,6 +113,9 @@ public class ReviewDigestListFragment extends Fragment implements OnScrollListen
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= listData.size()) {
+                    return;
+                }
                 ReviewDigestJson reviewDigestJson = listData.get(position);
                 String url = reviewDigestJson.getUrl();
                 if (!TextUtils.isEmpty(url)) {

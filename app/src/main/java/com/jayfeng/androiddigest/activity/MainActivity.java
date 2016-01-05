@@ -1,6 +1,7 @@
 package com.jayfeng.androiddigest.activity;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
@@ -57,10 +58,15 @@ public class MainActivity extends BaseActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        showToolbar();
-        toolbar.setNavigationIcon(R.mipmap.ic_launcher);
-        toolbar.setSubtitle(R.string.app_description);
-        toolbar.setSubtitleTextColor(getResources().getColor(android.R.color.white));
+        showToolbar(getString(R.string.app_description));
+
+        //set navigationBar color for Android 5.0 or above
+        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            getWindow().setNavigationBarColor(getResources().getColor(R.color.primary_dark));
+        }
+
+        //add this to optimize OverDraw
+        this.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
 
         fragmentManager = getSupportFragmentManager();
 
@@ -152,8 +158,14 @@ public class MainActivity extends BaseActivity
                         agent.startFeedbackActivity();
                         break;
                     case R.id.more_menu_setting:
-                        Intent intent = new Intent(MainActivity.this, SettingsActivity.class);
-                        startActivity(intent);
+                        Intent settingsIntent = new Intent(MainActivity.this, SettingsActivity.class);
+                        startActivity(settingsIntent);
+                        break;
+                    case R.id.more_menu_developers:
+                        Intent developerIntent = new Intent(MainActivity.this, DeveloperActivity.class);
+                        startActivity(developerIntent);
+                        break;
+                    default:
                         break;
                 }
                 return true;

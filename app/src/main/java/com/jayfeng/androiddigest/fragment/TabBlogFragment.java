@@ -2,10 +2,12 @@ package com.jayfeng.androiddigest.fragment;
 
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
@@ -20,6 +22,7 @@ import com.jayfeng.androiddigest.activity.WebViewActivity;
 import com.jayfeng.androiddigest.config.Config;
 import com.jayfeng.androiddigest.service.HttpClientSpiceService;
 import com.jayfeng.androiddigest.webservices.JsonRequest;
+import com.jayfeng.androiddigest.webservices.json.DigestJson;
 import com.jayfeng.androiddigest.webservices.json.OfflineJson;
 import com.jayfeng.androiddigest.webservices.json.OfflineListJson;
 import com.jayfeng.lesscode.core.AdapterLess;
@@ -36,7 +39,9 @@ import in.srain.cube.views.ptr.PtrClassicFrameLayout;
 import in.srain.cube.views.ptr.PtrDefaultHandler;
 import in.srain.cube.views.ptr.PtrFrameLayout;
 
-public class TabBlogFragment extends Fragment {
+public class TabBlogFragment extends BaseFragment {
+
+    private static final int CONTEXT_ITEM_OPEN_IN_BROWSER = 0;
 
     private SpiceManager spiceManager = new SpiceManager(HttpClientSpiceService.class);
 
@@ -81,6 +86,8 @@ public class TabBlogFragment extends Fragment {
                 return PtrDefaultHandler.checkContentCanBePulledDown(frame, listView, header) ;
             }
         });
+
+        registerForContextMenu(listView);
 
         return contentView;
     }
@@ -220,6 +227,29 @@ public class TabBlogFragment extends Fragment {
 
     private String getCacheKey() {
         return EncodeLess.$md5(getListUrl());
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        menu.setHeaderTitle("More");
+        menu.add(0, CONTEXT_ITEM_OPEN_IN_BROWSER, 0, "Open in browser");
+        super.onCreateContextMenu(menu, v, menuInfo);
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo menuInfo = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        switch (item.getItemId()) {
+            case CONTEXT_ITEM_OPEN_IN_BROWSER:
+                OfflineJson offlineJson = listData.get(menuInfo.position);
+                Intent intent = new Intent();
+                intent.setAction("android.intent.action.VIEW");
+                Uri content_url = Uri.parse(offlineJson.getUrl());
+                intent.setData(content_url);
+                startActivity(intent);
+                return true;
+        }
+        return super.onContextItemSelected(item);
     }
 
     @Override

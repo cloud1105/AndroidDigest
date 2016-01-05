@@ -2,13 +2,16 @@ package com.jayfeng.androiddigest.fragment;
 
 
 import android.content.Intent;
+import android.graphics.drawable.Animatable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.text.TextPaint;
 import android.text.TextUtils;
+import android.view.ContextMenu;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
@@ -19,9 +22,14 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.facebook.common.logging.FLog;
 import com.facebook.drawee.backends.pipeline.Fresco;
+import com.facebook.drawee.controller.BaseControllerListener;
+import com.facebook.drawee.controller.ControllerListener;
 import com.facebook.drawee.interfaces.DraweeController;
 import com.facebook.drawee.view.SimpleDraweeView;
+import com.facebook.imagepipeline.image.ImageInfo;
+import com.facebook.imagepipeline.image.QualityInfo;
 import com.jayfeng.androiddigest.R;
 import com.jayfeng.androiddigest.activity.DigestDetailActivity;
 import com.jayfeng.androiddigest.activity.SearchActivity;
@@ -33,6 +41,7 @@ import com.jayfeng.androiddigest.webservices.JsonRequest;
 import com.jayfeng.androiddigest.webservices.json.DigestJson;
 import com.jayfeng.androiddigest.webservices.json.DigestListJson;
 import com.jayfeng.lesscode.core.AdapterLess;
+import com.jayfeng.lesscode.core.DisplayLess;
 import com.jayfeng.lesscode.core.ViewLess;
 import com.octo.android.robospice.SpiceManager;
 import com.octo.android.robospice.persistence.DurationInMillis;
@@ -45,7 +54,9 @@ import in.srain.cube.views.ptr.PtrClassicFrameLayout;
 import in.srain.cube.views.ptr.PtrDefaultHandler;
 import in.srain.cube.views.ptr.PtrFrameLayout;
 
-public class DigestListFragment extends Fragment implements OnScrollListener, Searchable {
+public class DigestListFragment extends BaseFragment implements OnScrollListener, Searchable {
+
+    private static final int CONTEXT_ITEM_OPEN_IN_BROWSER = 0;
 
     private SpiceManager spiceManager = new SpiceManager(HttpClientSpiceService.class);
 
@@ -103,33 +114,38 @@ public class DigestListFragment extends Fragment implements OnScrollListener, Se
 
             @Override
             public boolean checkCanDoRefresh(PtrFrameLayout frame, View content, View header) {
-                return PtrDefaultHandler.checkContentCanBePulledDown(frame, listView, header) ;
+                return PtrDefaultHandler.checkContentCanBePulledDown(frame, listView, header);
             }
         });
 
+        registerForContextMenu(listView);
         return contentView;
     }
 
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        showCacheData();
-        ptrFrame.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                ptrFrame.autoRefresh();
-            }
-        }, 100);
+        if (!isSearch) {
+            showCacheData();
+            ptrFrame.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    ptrFrame.autoRefresh();
+                }
+            }, 100);
+        }
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                if (position < 0 || position >= listData.size()) {
+                    return;
+                }
                 DigestJson digestJson = listData.get(position);
                 String type = digestJson.getType();
-                if (Config.JOKE_TYPE_HTML.equals(type)) {
+                if (Config.DIGEST_TYPE_HTML.equals(type)) {
                     String url = digestJson.getUrl();
                     Intent intent = new Intent(getActivity(), WebViewActivity.class);
-//                    url = "http://www.baidu.com";
                     intent.putExtra(WebViewActivity.KEY_URL, url);
                     startActivity(intent);
                 } else {
@@ -207,7 +223,7 @@ public class DigestListFragment extends Fragment implements OnScrollListener, Se
                     public View getView(int i, View view, AdapterLess.ViewHolder viewHolder, DigestJson digestJson) {
                         TextView titleView = viewHolder.$view(view, R.id.title);
                         TextView abstractView = viewHolder.$view(view, R.id.abstracts);
-                        SimpleDraweeView draweeView = viewHolder.$view(view,R.id.thumbnail);
+                        final SimpleDraweeView draweeView = viewHolder.$view(view,R.id.thumbnail);
                         ImageView moreView = viewHolder.$view(view, R.id.more);
 
                         if (TextUtils.isEmpty(digestJson.getTitle())) {
@@ -228,7 +244,36 @@ public class DigestListFragment extends Fragment implements OnScrollListener, Se
 
                         if (!TextUtils.isEmpty(digestJson.getThumbnail())) {
                             Uri uri = Uri.parse(digestJson.getThumbnail());
+                            ControllerListener controllerListener = new BaseControllerListener<ImageInfo>() {
+                                @Override
+                                public void onFinalImageSet(
+                                        String id,
+                                        @Nullable ImageInfo imageInfo,
+                                        @Nullable Animatable anim) {
+                                    if (imageInfo.getWidth() > imageInfo.getHeight()) {
+                                        draweeView.getLayoutParams().width = ViewGroup.LayoutParams.MATCH_PARENT;
+                                    } else {
+                                        draweeView.getLayoutParams().width = DisplayLess.$dp2px(200);
+                                    }
+                                    draweeView.setAspectRatio((float) imageInfo.getWidth() / imageInfo.getHeight());
+                                }
+
+                                @Override
+                                public void onIntermediateImageSet(String id, @Nullable ImageInfo imageInfo) {
+                                    if (imageInfo.getWidth() > imageInfo.getHeight()) {
+                                        draweeView.getLayoutParams().width = ViewGroup.LayoutParams.MATCH_PARENT;
+                                    } else {
+                                        draweeView.getLayoutParams().width = DisplayLess.$dp2px(200);
+                                    }
+                                    draweeView.setAspectRatio((float) imageInfo.getWidth() / imageInfo.getHeight());
+                                }
+
+                                @Override
+                                public void onFailure(String id, Throwable throwable) {
+                                }
+                            };
                             DraweeController controller = Fresco.newDraweeControllerBuilder()
+                                    .setControllerListener(controllerListener)
                                     .setUri(uri)
                                     .setAutoPlayAnimations(true)
                                     .build();
@@ -243,6 +288,12 @@ public class DigestListFragment extends Fragment implements OnScrollListener, Se
                     }
                 });
         listView.setAdapter(adapter);
+        if (listData.size() < Config.PAGE_SIZE) {
+            if (listView.getFooterViewsCount() > 0) {
+                listView.removeFooterView(footerView);
+            }
+            noMoreData = true;
+        }
     }
 
     /*
@@ -333,6 +384,32 @@ public class DigestListFragment extends Fragment implements OnScrollListener, Se
     @Override
     public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
         visibleLastIndex = firstVisibleItem + visibleItemCount - 1;
+    }
+
+    @Override
+    public void onCreateContextMenu(ContextMenu menu, View v, ContextMenu.ContextMenuInfo menuInfo) {
+        menu.setHeaderTitle("More");
+        menu.add(0, CONTEXT_ITEM_OPEN_IN_BROWSER, 0, "Open in browser");
+        super.onCreateContextMenu(menu, v, menuInfo);
+    }
+
+    @Override
+    public boolean onContextItemSelected(MenuItem item) {
+        AdapterView.AdapterContextMenuInfo menuInfo = (AdapterView.AdapterContextMenuInfo) item.getMenuInfo();
+        switch (item.getItemId()) {
+            case CONTEXT_ITEM_OPEN_IN_BROWSER:
+                DigestJson digestJson = listData.get(menuInfo.position);
+                String type = digestJson.getType();
+                if (Config.DIGEST_TYPE_HTML.equals(type)) {
+                    Intent intent = new Intent();
+                    intent.setAction("android.intent.action.VIEW");
+                    Uri content_url = Uri.parse(digestJson.getUrl());
+                    intent.setData(content_url);
+                    startActivity(intent);
+                }
+                return true;
+        }
+        return super.onContextItemSelected(item);
     }
 
     @Override
